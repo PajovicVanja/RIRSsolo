@@ -28,7 +28,7 @@ app.use(cors({
 }));
 app.use(express.json()); // Parse incoming JSON dataa
 
-// Add a health check routeee
+// Add a health check routeeee
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         status: 'ok',
