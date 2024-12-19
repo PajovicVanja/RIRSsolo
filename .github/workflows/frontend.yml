@@ -6,9 +6,7 @@ on:
       - main
       - production
   pull_request:
-    branches:
-      - main
-      - production
+    types: [opened, synchronize, reopened]
 
 jobs:
   build-and-test:
@@ -16,7 +14,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones disabled for better analysis relevancy
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -47,10 +47,6 @@ jobs:
         name: frontend-build
         path: frontend/build/
 
-    - name: List build directory contents
-      run: |
-        ls -la frontend/build
-
     - name: Run tests with coverage
       run: |
         cd frontend
@@ -61,6 +57,12 @@ jobs:
       with:
         name: frontend-coverage
         path: frontend/coverage/
+
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarqube-scan-action@v4
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For pull request information
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   deploy-to-development:
     runs-on: ubuntu-latest
@@ -103,6 +105,19 @@ jobs:
       with:
         name: frontend-build
         path: frontend/build
+
+    - name: Check SonarCloud Quality Gate
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        STATUS=$(curl -s -u $SONAR_TOKEN: \
+          "https://sonarcloud.io/api/qualitygates/project_status?projectKey=PajovicVanja_RIRSsolo" \
+          | jq -r '.projectStatus.status')
+        echo "Quality Gate Status: $STATUS"
+        if [ "$STATUS" != "OK" ]; then
+          echo "Quality Gate failed. Stopping the pipeline."
+          exit 1
+        fi
 
     - name: Deploy to Firebase Hosting (Production)
       env:
